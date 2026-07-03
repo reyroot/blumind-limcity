@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: limcity-db
+    environment:
+      POSTGRES_USER: limcity
+      POSTGRES_PASSWORD: limcity
+      POSTGRES_DB: limcity
+    ports:
+      - "5432:5432"
+    volumes:
+      - limcity_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U limcity -d limcity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  limcity_pgdata:

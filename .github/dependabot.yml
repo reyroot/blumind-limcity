@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Keep Python runtime & dev dependencies patched
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+
+  # Keep GitHub Actions pinned versions up to date
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci
