@@ -2,7 +2,7 @@
 fastapi==0.139.0
 uvicorn==0.49.0
 pydantic==2.13.4
-pydantic-settings==2.6.1
+pydantic-settings==2.14.2
 
 # Database (PostgreSQL + PostGIS) — async (psycopg 3 ships prebuilt wheels)
 SQLAlchemy==2.0.51
