@@ -7,7 +7,7 @@ pydantic-settings==2.6.1
 # Database (PostgreSQL + PostGIS) — async (psycopg 3 ships prebuilt wheels)
 SQLAlchemy==2.0.51
 psycopg[binary]==3.3.4
-GeoAlchemy2==0.16.0
+GeoAlchemy2==0.20.0
 alembic==1.14.0
 
 # HTTP client (WhatsApp media download + AI provider calls)
