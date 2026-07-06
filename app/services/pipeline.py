@@ -6,6 +6,7 @@ own DB session and swallows/logs errors rather than propagating them to a reques
 
 import logging
 
+from app.core.settings import settings
 from app.db.session import SessionLocal
 from app.models.report import ReportStatus
 from app.schemas.report import WasteReportCreate
@@ -42,7 +43,13 @@ async def process_inbound_message(message: InboundMessage, classifier: WasteClas
 
         try:
             assert message.image_media_id is not None
-            image_bytes = await download_media(message.image_media_id)
+            if settings.whatsapp_configured:
+                image_bytes = await download_media(message.image_media_id)
+            else:
+                # Dev mode: no real WhatsApp token, so skip the Graph API download.
+                # The placeholder classifier ignores the bytes anyway.
+                logger.info("WhatsApp not configured; skipping media download (dev).")
+                image_bytes = b""
             result = await classifier.classify(image_bytes)
             await report_service.apply_classification(session, report, result)
         except Exception:

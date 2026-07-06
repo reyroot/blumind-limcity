@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     ai_provider: Literal["gemini", "openai", "yolo"] = "gemini"
     ai_api_key: str = "change-me"
 
+    @property
+    def whatsapp_configured(self) -> bool:
+        """True when a real WhatsApp access token is set (not the dev placeholder)."""
+        return self.whatsapp_access_token != "change-me"
+
 
 @lru_cache
 def get_settings() -> Settings:
