@@ -31,7 +31,10 @@ class WasteReport(Base):
     reporter_phone: Mapped[str] = mapped_column(String(32), index=True)
 
     # PostGIS POINT (SRID 4326). Redundant lat/long floats kept for convenience.
-    location: Mapped[str] = mapped_column(Geometry(geometry_type="POINT", srid=4326))
+    # spatial_index=False: the GiST index is declared explicitly below so Alembic owns it.
+    location: Mapped[str] = mapped_column(
+        Geometry(geometry_type="POINT", srid=4326, spatial_index=False)
+    )
     latitude: Mapped[float] = mapped_column(Float)
     longitude: Mapped[float] = mapped_column(Float)
 

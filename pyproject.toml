@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-extend-exclude = ["venv", ".venv"]
+extend-exclude = ["venv", ".venv", "migrations"]
 
 [tool.ruff.lint]
 # pycodestyle, pyflakes, isort, pyupgrade, bugbear, comprehensions
@@ -17,7 +17,7 @@ select = ["E", "F", "I", "UP", "B", "C4"]
 python_version = "3.10"
 strict = true
 ignore_missing_imports = true
-exclude = "(venv|\\.venv)/"
+exclude = "(venv|\\.venv|migrations)/"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
