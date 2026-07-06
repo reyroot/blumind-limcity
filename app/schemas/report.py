@@ -26,3 +26,26 @@ class WasteReportRead(BaseModel):
     waste_category: str | None
     confidence: float | None
     created_at: datetime
+
+
+class ReportListResponse(BaseModel):
+    items: list[WasteReportRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class HeatmapPoint(BaseModel):
+    latitude: float
+    longitude: float
+    weight: float = Field(description="Aggregated report count at this grid cell.")
+
+
+class CategoryCount(BaseModel):
+    category: str | None
+    count: int
+
+
+class ReportStats(BaseModel):
+    total: int
+    by_category: list[CategoryCount]

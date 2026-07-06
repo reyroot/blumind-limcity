@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Limcity · Waste Heatmap</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --panel-2: #334155;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --accent: #22c55e;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+      #app { display: flex; height: 100vh; }
+      #sidebar {
+        width: 320px;
+        background: var(--panel);
+        padding: 20px;
+        overflow-y: auto;
+        border-right: 1px solid var(--panel-2);
+      }
+      #map { flex: 1; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+      .card {
+        background: var(--panel-2);
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+      }
+      .total { font-size: 34px; font-weight: 700; color: var(--accent); }
+      .total-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+      label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+      select, input {
+        width: 100%; padding: 8px 10px; border-radius: 8px;
+        border: 1px solid var(--panel-2); background: var(--bg);
+        color: var(--text); font-size: 14px;
+      }
+      .field { margin-bottom: 14px; }
+      .legend-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 5px 0; }
+      .legend-left { display: flex; align-items: center; gap: 8px; }
+      .swatch { width: 12px; height: 12px; border-radius: 3px; }
+      .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+      .footer { color: var(--muted); font-size: 11px; margin-top: 20px; line-height: 1.5; }
+      .badge { display:inline-block; background: var(--accent); color:#052e16; font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; vertical-align:middle; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <h1>Limcity <span class="badge">DEV</span></h1>
+        <div class="subtitle">Smart waste heatmap · Blumenau, SC</div>
+
+        <div class="card">
+          <div class="total-label">Total reports</div>
+          <div class="total" id="total">—</div>
+        </div>
+
+        <div class="field">
+          <label for="category">Waste category</label>
+          <select id="category">
+            <option value="">All categories</option>
+          </select>
+        </div>
+
+        <div class="card">
+          <div class="total-label" style="margin-bottom:8px;">By category</div>
+          <div id="legend"></div>
+        </div>
+
+        <div class="footer">
+          Placeholder classifier — categories are randomized for demo.<br />
+          Data: <code>/api/reports/heatmap</code>
+        </div>
+      </aside>
+      <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script>
+      const BLUMENAU = [-26.9194, -49.0661];
+      const COLORS = {
+        organic: "#84cc16",
+        recyclable: "#3b82f6",
+        construction_debris: "#f59e0b",
+        electronic: "#a855f7",
+        bulky: "#ec4899",
+        hazardous: "#ef4444",
+        general: "#94a3b8",
+      };
+
+      const map = L.map("map").setView(BLUMENAU, 13);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: "&copy; OpenStreetMap &copy; CARTO",
+        maxZoom: 19,
+      }).addTo(map);
+
+      let heatLayer = null;
+
+      async function fetchJSON(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`${res.status} ${url}`);
+        return res.json();
+      }
+
+      function currentQuery() {
+        const cat = document.getElementById("category").value;
+        return cat ? `?category=${encodeURIComponent(cat)}` : "";
+      }
+
+      async function refresh() {
+        const q = currentQuery();
+        const [points, stats] = await Promise.all([
+          fetchJSON(`/api/reports/heatmap${q}`),
+          fetchJSON(`/api/reports/stats${q}`),
+        ]);
+
+        // Heat layer
+        const maxWeight = points.reduce((m, p) => Math.max(m, p.weight), 1);
+        const heatData = points.map((p) => [p.latitude, p.longitude, p.weight / maxWeight]);
+        if (heatLayer) map.removeLayer(heatLayer);
+        heatLayer = L.heatLayer(heatData, {
+          radius: 30,
+          blur: 22,
+          minOpacity: 0.45,
+          maxZoom: 17,
+          gradient: { 0.2: "#1e3a8a", 0.4: "#06b6d4", 0.6: "#84cc16", 0.8: "#f59e0b", 1.0: "#ef4444" },
+        }).addTo(map);
+
+        // Stats
+        document.getElementById("total").textContent = stats.total.toLocaleString();
+        const legend = document.getElementById("legend");
+        legend.innerHTML = "";
+        if (stats.by_category.length === 0) {
+          legend.innerHTML = '<div class="count">No data yet.</div>';
+        }
+        for (const row of stats.by_category) {
+          const key = row.category || "general";
+          const div = document.createElement("div");
+          div.className = "legend-row";
+          div.innerHTML = `
+            <div class="legend-left">
+              <span class="swatch" style="background:${COLORS[key] || "#94a3b8"}"></span>
+              <span>${row.category || "unclassified"}</span>
+            </div>
+            <span class="count">${row.count.toLocaleString()}</span>`;
+          legend.appendChild(div);
+        }
+      }
+
+      async function initCategories() {
+        // Populate the filter from whatever categories exist in the data.
+        const stats = await fetchJSON("/api/reports/stats");
+        const sel = document.getElementById("category");
+        for (const row of stats.by_category) {
+          if (!row.category) continue;
+          const opt = document.createElement("option");
+          opt.value = row.category;
+          opt.textContent = row.category;
+          sel.appendChild(opt);
+        }
+      }
+
+      document.getElementById("category").addEventListener("change", refresh);
+
+      (async () => {
+        try {
+          await initCategories();
+          await refresh();
+        } catch (e) {
+          console.error(e);
+          document.getElementById("legend").innerHTML =
+            `<div class="count">Error loading data: ${e.message}</div>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

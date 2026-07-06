@@ -7,6 +7,17 @@ does not ripple through services or the database layer.
 
 from pydantic import BaseModel, Field
 
+# Canonical waste categories used across the app (classifier output, filters, UI).
+WASTE_CATEGORIES: tuple[str, ...] = (
+    "organic",
+    "recyclable",
+    "construction_debris",
+    "electronic",
+    "bulky",
+    "hazardous",
+    "general",
+)
+
 
 class ClassificationResult(BaseModel):
     category: str = Field(description="Predicted waste category, e.g. 'organic'.")
