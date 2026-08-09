@@ -4,12 +4,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.report import ReportStatus
+from app.models.report import ReportStatus, SourceChannel
 
 
 class WasteReportCreate(BaseModel):
     whatsapp_message_id: str
     reporter_phone: str
+    source_channel: SourceChannel
     latitude: float = Field(ge=-90.0, le=90.0)
     longitude: float = Field(ge=-180.0, le=180.0)
     image_url: str | None = None
@@ -20,6 +21,7 @@ class WasteReportRead(BaseModel):
 
     id: int
     reporter_phone: str
+    source_channel: SourceChannel
     latitude: float
     longitude: float
     status: ReportStatus

@@ -16,6 +16,20 @@
         --text: #e2e8f0;
         --muted: #94a3b8;
         --accent: #22c55e;
+        --badge-text: #052e16;
+        --border: #334155;
+        --input-bg: #0f172a;
+      }
+      [data-theme="light"] {
+        --bg: #f1f5f9;
+        --panel: #ffffff;
+        --panel-2: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #16a34a;
+        --badge-text: #ffffff;
+        --border: #cbd5e1;
+        --input-bg: #ffffff;
       }
       * { box-sizing: border-box; }
       html, body { height: 100%; margin: 0; }
@@ -30,7 +44,36 @@
         background: var(--panel);
         padding: 20px;
         overflow-y: auto;
-        border-right: 1px solid var(--panel-2);
+        border-right: 1px solid var(--border);
+      }
+      .sidebar-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 4px;
+      }
+      .sidebar-title { flex: 1; min-width: 0; }
+      #theme-toggle {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--input-bg);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      #theme-toggle:hover { background: var(--panel-2); }
+      #theme-toggle:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
       #map { flex: 1; }
       h1 { font-size: 20px; margin: 0 0 4px; }
@@ -46,27 +89,67 @@
       label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
       select, input {
         width: 100%; padding: 8px 10px; border-radius: 8px;
-        border: 1px solid var(--panel-2); background: var(--bg);
+        border: 1px solid var(--border); background: var(--input-bg);
         color: var(--text); font-size: 14px;
       }
       .field { margin-bottom: 14px; }
+      .view-toggle {
+        display: flex;
+        gap: 6px;
+      }
+      .view-toggle button {
+        flex: 1;
+        padding: 8px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--input-bg);
+        color: var(--text);
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .view-toggle button.active {
+        background: var(--accent);
+        color: var(--badge-text);
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .view-toggle button:hover:not(.active) { background: var(--panel-2); }
       .legend-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 5px 0; }
       .legend-left { display: flex; align-items: center; gap: 8px; }
       .swatch { width: 12px; height: 12px; border-radius: 3px; }
       .count { color: var(--muted); font-variant-numeric: tabular-nums; }
       .footer { color: var(--muted); font-size: 11px; margin-top: 20px; line-height: 1.5; }
-      .badge { display:inline-block; background: var(--accent); color:#052e16; font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; vertical-align:middle; }
+      .badge { display:inline-block; background: var(--accent); color:var(--badge-text); font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; vertical-align:middle; }
     </style>
   </head>
   <body>
     <div id="app">
       <aside id="sidebar">
-        <h1>Limcity <span class="badge">DEV</span></h1>
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <h1>Limcity <span class="badge">DEV</span></h1>
+          </div>
+          <button
+            id="theme-toggle"
+            type="button"
+            aria-label="Switch to light mode"
+            title="Switch to light mode"
+          >☀️</button>
+        </div>
         <div class="subtitle">Smart waste heatmap · Blumenau, SC</div>
 
         <div class="card">
           <div class="total-label">Total reports</div>
           <div class="total" id="total">—</div>
+        </div>
+
+        <div class="field">
+          <label>Map view</label>
+          <div class="view-toggle" id="view-mode">
+            <button type="button" data-mode="heatmap" class="active">Heatmap</button>
+            <button type="button" data-mode="markers">Reports</button>
+            <button type="button" data-mode="both">Both</button>
+          </div>
         </div>
 
         <div class="field">
@@ -83,7 +166,7 @@
 
         <div class="footer">
           Placeholder classifier — categories are randomized for demo.<br />
-          Data: <code>/api/reports/heatmap</code>
+          Heatmap = density zones · Reports = each pin.
         </div>
       </aside>
       <div id="map"></div>
@@ -93,6 +176,19 @@
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <script>
       const BLUMENAU = [-26.9194, -49.0661];
+      const THEME_KEY = "limcity-dashboard-theme";
+      const TILE_LAYERS = {
+        dark: {
+          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          label: "Switch to light mode",
+          icon: "☀️",
+        },
+        light: {
+          url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+          label: "Switch to dark mode",
+          icon: "🌙",
+        },
+      };
       const COLORS = {
         organic: "#84cc16",
         recyclable: "#3b82f6",
@@ -104,12 +200,125 @@
       };
 
       const map = L.map("map").setView(BLUMENAU, 13);
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: "&copy; OpenStreetMap &copy; CARTO",
-        maxZoom: 19,
-      }).addTo(map);
-
+      let tileLayer = null;
       let heatLayer = null;
+      let markerLayer = null;
+      let viewMode = localStorage.getItem("limcity-view-mode") || "heatmap";
+
+      function setViewMode(mode) {
+        viewMode = mode;
+        localStorage.setItem("limcity-view-mode", mode);
+        document.querySelectorAll("#view-mode button").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.mode === mode);
+        });
+      }
+
+      function heatIntensity(weight, maxWeight) {
+        // Square-root scaling keeps dense demo data from becoming one solid red blob.
+        return Math.sqrt(weight) / Math.sqrt(maxWeight);
+      }
+
+      function markerStyle(category) {
+        const color = COLORS[category] || COLORS.general;
+        return {
+          radius: 7,
+          fillColor: color,
+          color: "#fff",
+          weight: 1.5,
+          opacity: 0.9,
+          fillOpacity: 0.85,
+        };
+      }
+
+      function popupHtml(props) {
+        const cat = props.category || "unclassified";
+        const conf = props.confidence != null ? `${Math.round(props.confidence * 100)}%` : "—";
+        const channel = props.source_channel || "—";
+        const when = props.created_at ? new Date(props.created_at).toLocaleString() : "—";
+        return `
+          <strong>#${props.id}</strong> · ${cat}<br>
+          Confidence: ${conf}<br>
+          Channel: ${channel}<br>
+          <span style="color:#64748b;font-size:12px">${when}</span>
+        `;
+      }
+
+      function renderHeatmap(points) {
+        if (heatLayer) {
+          map.removeLayer(heatLayer);
+          heatLayer = null;
+        }
+        if (viewMode === "markers" || points.length === 0) return;
+
+        const maxWeight = points.reduce((m, p) => Math.max(m, p.weight), 1);
+        const heatData = points.map((p) => [
+          p.latitude,
+          p.longitude,
+          heatIntensity(p.weight, maxWeight),
+        ]);
+        heatLayer = L.heatLayer(heatData, {
+          radius: 18,
+          blur: 12,
+          minOpacity: 0.2,
+          max: 0.75,
+          maxZoom: 17,
+          gradient: {
+            0.0: "#1e3a8a",
+            0.35: "#06b6d4",
+            0.55: "#84cc16",
+            0.75: "#f59e0b",
+            1.0: "#ef4444",
+          },
+        }).addTo(map);
+      }
+
+      function renderMarkers(geojson) {
+        if (markerLayer) {
+          map.removeLayer(markerLayer);
+          markerLayer = null;
+        }
+        if (viewMode === "heatmap" || !geojson) return;
+
+        markerLayer = L.geoJSON(geojson, {
+          pointToLayer(feature, latlng) {
+            return L.circleMarker(latlng, markerStyle(feature.properties.category));
+          },
+          onEachFeature(feature, layer) {
+            layer.bindPopup(popupHtml(feature.properties));
+          },
+        }).addTo(map);
+      }
+
+      function applyTheme(theme) {
+        const resolved = theme === "light" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", resolved);
+        localStorage.setItem(THEME_KEY, resolved);
+
+        const toggle = document.getElementById("theme-toggle");
+        const cfg = TILE_LAYERS[resolved];
+        toggle.textContent = cfg.icon;
+        toggle.setAttribute("aria-label", cfg.label);
+        toggle.title = cfg.label;
+
+        if (tileLayer) map.removeLayer(tileLayer);
+        tileLayer = L.tileLayer(cfg.url, {
+          attribution: "&copy; OpenStreetMap &copy; CARTO",
+          maxZoom: 19,
+        }).addTo(map);
+      }
+
+      function initTheme() {
+        const stored = localStorage.getItem(THEME_KEY);
+        const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+        applyTheme(stored || (prefersLight ? "light" : "dark"));
+      }
+
+      document.getElementById("theme-toggle").addEventListener("click", () => {
+        const current = document.documentElement.getAttribute("data-theme") || "dark";
+        applyTheme(current === "dark" ? "light" : "dark");
+      });
+
+      initTheme();
 
       async function fetchJSON(url) {
         const res = await fetch(url);
@@ -124,41 +333,41 @@
 
       async function refresh() {
         const q = currentQuery();
-        const [points, stats] = await Promise.all([
-          fetchJSON(`/api/reports/heatmap${q}`),
-          fetchJSON(`/api/reports/stats${q}`),
-        ]);
+        const showHeatmap = viewMode === "heatmap" || viewMode === "both";
+        const showMarkers = viewMode === "markers" || viewMode === "both";
 
-        // Heat layer
-        const maxWeight = points.reduce((m, p) => Math.max(m, p.weight), 1);
-        const heatData = points.map((p) => [p.latitude, p.longitude, p.weight / maxWeight]);
-        if (heatLayer) map.removeLayer(heatLayer);
-        heatLayer = L.heatLayer(heatData, {
-          radius: 30,
-          blur: 22,
-          minOpacity: 0.45,
-          maxZoom: 17,
-          gradient: { 0.2: "#1e3a8a", 0.4: "#06b6d4", 0.6: "#84cc16", 0.8: "#f59e0b", 1.0: "#ef4444" },
-        }).addTo(map);
+        try {
+          const stats = await fetchJSON(`/api/reports/stats${q}`);
+          const points = showHeatmap ? await fetchJSON(`/api/reports/heatmap${q}`) : [];
+          const geojson = showMarkers
+            ? await fetchJSON(`/api/reports/geojson${q}${q ? "&" : "?"}limit=5000`)
+            : null;
 
-        // Stats
-        document.getElementById("total").textContent = stats.total.toLocaleString();
-        const legend = document.getElementById("legend");
-        legend.innerHTML = "";
-        if (stats.by_category.length === 0) {
-          legend.innerHTML = '<div class="count">No data yet.</div>';
-        }
-        for (const row of stats.by_category) {
-          const key = row.category || "general";
-          const div = document.createElement("div");
-          div.className = "legend-row";
-          div.innerHTML = `
-            <div class="legend-left">
-              <span class="swatch" style="background:${COLORS[key] || "#94a3b8"}"></span>
-              <span>${row.category || "unclassified"}</span>
-            </div>
-            <span class="count">${row.count.toLocaleString()}</span>`;
-          legend.appendChild(div);
+          renderHeatmap(points);
+          renderMarkers(geojson);
+
+          document.getElementById("total").textContent = stats.total.toLocaleString();
+          const legend = document.getElementById("legend");
+          legend.innerHTML = "";
+          if (stats.by_category.length === 0) {
+            legend.innerHTML = '<div class="count">No data yet.</div>';
+          }
+          for (const row of stats.by_category) {
+            const key = row.category || "general";
+            const div = document.createElement("div");
+            div.className = "legend-row";
+            div.innerHTML = `
+              <div class="legend-left">
+                <span class="swatch" style="background:${COLORS[key] || "#94a3b8"}"></span>
+                <span>${row.category || "unclassified"}</span>
+              </div>
+              <span class="count">${row.count.toLocaleString()}</span>`;
+            legend.appendChild(div);
+          }
+        } catch (e) {
+          console.error(e);
+          document.getElementById("legend").innerHTML =
+            `<div class="count">Error loading map data: ${e.message}</div>`;
         }
       }
 
@@ -176,6 +385,15 @@
       }
 
       document.getElementById("category").addEventListener("change", refresh);
+
+      document.getElementById("view-mode").addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-mode]");
+        if (!btn) return;
+        setViewMode(btn.dataset.mode);
+        refresh();
+      });
+
+      setViewMode(viewMode);
 
       (async () => {
         try {

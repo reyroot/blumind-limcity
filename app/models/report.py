@@ -22,6 +22,13 @@ class ReportStatus(str, Enum):
     FAILED = "failed"
 
 
+class SourceChannel(str, Enum):
+    """Inbound channel that originated the report (extensible for future integrations)."""
+
+    WHATSAPP = "whatsapp"
+    TELEGRAM = "telegram"
+
+
 class WasteReport(Base):
     __tablename__ = "waste_reports"
 
@@ -29,6 +36,7 @@ class WasteReport(Base):
 
     whatsapp_message_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     reporter_phone: Mapped[str] = mapped_column(String(32), index=True)
+    source_channel: Mapped[SourceChannel] = mapped_column(String(16), index=True)
 
     # PostGIS POINT (SRID 4326). Redundant lat/long floats kept for convenience.
     # spatial_index=False: the GiST index is declared explicitly below so Alembic owns it.

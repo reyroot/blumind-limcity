@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, pool
 
 from app.core.settings import settings
 from app.db.base import Base
+from app.models import conversation as _conversation  # noqa: F401  (register model metadata)
 from app.models import report as _report  # noqa: F401  (register model metadata)
 
 config = context.config

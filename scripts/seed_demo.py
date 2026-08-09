@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from geoalchemy2.elements import WKTElement
 
 from app.db.session import SessionLocal
-from app.models.report import ReportStatus, WasteReport
+from app.models.report import ReportStatus, SourceChannel, WasteReport
 from app.schemas.classification import WASTE_CATEGORIES
 
 # Approximate neighborhood centers (lat, lng) to create realistic hotspots.
@@ -42,6 +42,7 @@ def _random_report() -> WasteReport:
     return WasteReport(
         whatsapp_message_id=f"seed-{uuid.uuid4()}",
         reporter_phone=f"+5547{random.randint(90000000, 99999999)}",
+        source_channel=SourceChannel.WHATSAPP,
         location=WKTElement(f"POINT({lng} {lat})", srid=4326),
         latitude=lat,
         longitude=lng,

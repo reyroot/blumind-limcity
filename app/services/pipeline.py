@@ -1,59 +1,48 @@
-"""Orchestrates the report ingestion pipeline (runs as a background task).
-
-Because it executes after the webhook has already returned 200 to Meta, it manages its
-own DB session and swallows/logs errors rather than propagating them to a request.
-"""
+"""WhatsApp adapter for the shared report conversation flow."""
 
 import logging
 
 from app.core.settings import settings
-from app.db.session import SessionLocal
-from app.models.report import ReportStatus
-from app.schemas.report import WasteReportCreate
+from app.models.report import SourceChannel
+from app.schemas.inbound import InboundReportMessage
 from app.schemas.whatsapp import InboundMessage
-from app.services import report_service
 from app.services.classifier.base import WasteClassifier
-from app.services.whatsapp import download_media
+from app.services.report_conversation import process_inbound_report
+from app.services.whatsapp import download_media, send_text_message
 
 logger = logging.getLogger(__name__)
 
 
+class WhatsAppChannel:
+    source_channel = SourceChannel.WHATSAPP
+
+    async def send_text(self, recipient_id: str, body: str) -> None:
+        await send_text_message(recipient_id, body)
+
+    async def download_image(self, media_ref: str) -> bytes:
+        if settings.whatsapp_configured:
+            return await download_media(media_ref)
+        logger.info("WhatsApp not configured; skipping media download (dev).")
+        return b""
+
+
+def to_inbound_report(message: InboundMessage) -> InboundReportMessage:
+    return InboundReportMessage(
+        message_id=message.message_id,
+        session_key=message.from_phone,
+        reporter_label=message.from_phone,
+        message_type=message.message_type,
+        image_media_ref=message.image_media_id,
+        latitude=message.latitude,
+        longitude=message.longitude,
+        text=message.text,
+    )
+
+
 async def process_inbound_message(message: InboundMessage, classifier: WasteClassifier) -> None:
-    """Idempotently persist and classify a single inbound WhatsApp report."""
-    if not message.is_actionable:
-        logger.info("Skipping non-actionable message %s", message.message_id)
-        return
-
-    async with SessionLocal() as session:
-        existing = await report_service.get_by_message_id(session, message.message_id)
-        if existing is not None:
-            logger.info("Duplicate message %s ignored", message.message_id)
-            return
-
-        assert message.latitude is not None and message.longitude is not None
-        report = await report_service.create_report(
-            session,
-            WasteReportCreate(
-                whatsapp_message_id=message.message_id,
-                reporter_phone=message.from_phone,
-                latitude=message.latitude,
-                longitude=message.longitude,
-            ),
-        )
-
-        try:
-            assert message.image_media_id is not None
-            if settings.whatsapp_configured:
-                image_bytes = await download_media(message.image_media_id)
-            else:
-                # Dev mode: no real WhatsApp token, so skip the Graph API download.
-                # The placeholder classifier ignores the bytes anyway.
-                logger.info("WhatsApp not configured; skipping media download (dev).")
-                image_bytes = b""
-            result = await classifier.classify(image_bytes)
-            await report_service.apply_classification(session, report, result)
-        except Exception:
-            logger.exception("Classification failed for %s", message.message_id)
-            report.status = ReportStatus.FAILED
-
-        await session.commit()
+    """Advance the report conversation for a single inbound WhatsApp message."""
+    await process_inbound_report(
+        to_inbound_report(message),
+        classifier,
+        WhatsAppChannel(),
+    )

@@ -7,7 +7,7 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import ColumnElement, Numeric, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.report import ReportStatus, WasteReport
+from app.models.report import ReportStatus, SourceChannel, WasteReport
 from app.schemas.classification import ClassificationResult
 from app.schemas.report import CategoryCount, HeatmapPoint, ReportStats, WasteReportCreate
 
@@ -17,12 +17,15 @@ _HEATMAP_PRECISION = 3
 
 def _filters(
     category: str | None,
+    source_channel: SourceChannel | None,
     start: datetime | None,
     end: datetime | None,
 ) -> list[ColumnElement[bool]]:
     conditions: list[ColumnElement[bool]] = []
     if category is not None:
         conditions.append(WasteReport.waste_category == category)
+    if source_channel is not None:
+        conditions.append(WasteReport.source_channel == source_channel)
     if start is not None:
         conditions.append(WasteReport.created_at >= start)
     if end is not None:
@@ -44,6 +47,7 @@ async def create_report(session: AsyncSession, payload: WasteReportCreate) -> Wa
     report = WasteReport(
         whatsapp_message_id=payload.whatsapp_message_id,
         reporter_phone=payload.reporter_phone,
+        source_channel=payload.source_channel,
         location=point,
         latitude=payload.latitude,
         longitude=payload.longitude,
@@ -70,6 +74,7 @@ async def list_reports(
     session: AsyncSession,
     *,
     category: str | None = None,
+    source_channel: SourceChannel | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
     limit: int = 100,
@@ -78,7 +83,7 @@ async def list_reports(
     """Return a filtered, paginated page of reports (newest first)."""
     stmt = (
         select(WasteReport)
-        .where(*_filters(category, start, end))
+        .where(*_filters(category, source_channel, start, end))
         .order_by(WasteReport.created_at.desc())
         .limit(limit)
         .offset(offset)
@@ -91,11 +96,16 @@ async def count_reports(
     session: AsyncSession,
     *,
     category: str | None = None,
+    source_channel: SourceChannel | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> int:
     """Count reports matching the given filters."""
-    stmt = select(func.count()).select_from(WasteReport).where(*_filters(category, start, end))
+    stmt = (
+        select(func.count())
+        .select_from(WasteReport)
+        .where(*_filters(category, source_channel, start, end))
+    )
     total = (await session.execute(stmt)).scalar_one()
     return int(total)
 
@@ -104,6 +114,7 @@ async def heatmap_points(
     session: AsyncSession,
     *,
     category: str | None = None,
+    source_channel: SourceChannel | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> list[HeatmapPoint]:
@@ -112,7 +123,7 @@ async def heatmap_points(
     lng_cell = func.round(cast(WasteReport.longitude, Numeric), _HEATMAP_PRECISION)
     stmt = (
         select(lat_cell, lng_cell, func.count())
-        .where(*_filters(category, start, end))
+        .where(*_filters(category, source_channel, start, end))
         .group_by(lat_cell, lng_cell)
     )
     rows = await session.execute(stmt)
@@ -126,11 +137,12 @@ async def stats(
     session: AsyncSession,
     *,
     category: str | None = None,
+    source_channel: SourceChannel | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> ReportStats:
     """Return total count and a per-category breakdown for the given filters."""
-    conditions = _filters(category, start, end)
+    conditions = _filters(category, source_channel, start, end)
     total_raw = (
         await session.execute(select(func.count()).select_from(WasteReport).where(*conditions))
     ).scalar_one()

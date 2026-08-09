@@ -5,6 +5,7 @@ non-actionable message (no image/location) so the background task returns before
 DB access.
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -12,7 +13,7 @@ import json
 from fastapi.testclient import TestClient
 
 from app.core.settings import settings
-from app.services.whatsapp import parse_inbound, verify_signature
+from app.services.whatsapp import parse_inbound, send_text_message, verify_signature
 from main import app
 
 client = TestClient(app)
@@ -132,3 +133,49 @@ def test_parse_inbound_returns_none_for_status_event() -> None:
         "entry": [{"changes": [{"value": {"statuses": []}}]}]
     }
     assert parse_inbound(payload) is None
+
+
+def _wrap(message: dict[str, object]) -> dict[str, object]:
+    return {"entry": [{"changes": [{"value": {"messages": [message]}}]}]}
+
+
+def test_parse_inbound_detects_image_only() -> None:
+    message = parse_inbound(
+        _wrap({"id": "wamid.IMG", "from": "5547123", "image": {"id": "MEDIA1"}})
+    )
+    assert message is not None
+    assert message.message_type == "image"
+    assert message.has_image is True
+    assert message.has_location is False
+    assert message.is_actionable is False
+
+
+def test_parse_inbound_detects_location_only() -> None:
+    message = parse_inbound(
+        _wrap(
+            {
+                "id": "wamid.LOC",
+                "from": "5547123",
+                "location": {"latitude": -26.9, "longitude": -49.0},
+            }
+        )
+    )
+    assert message is not None
+    assert message.message_type == "location"
+    assert message.has_location is True
+    assert message.has_image is False
+
+
+def test_parse_inbound_detects_text() -> None:
+    message = parse_inbound(
+        _wrap({"id": "wamid.TXT", "from": "5547123", "text": {"body": "oi"}})
+    )
+    assert message is not None
+    assert message.message_type == "text"
+    assert message.text == "oi"
+
+
+def test_send_text_message_dev_bypass_is_noop() -> None:
+    # With no real token configured, sending must not raise or hit the network.
+    assert settings.whatsapp_configured is False
+    asyncio.run(send_text_message("5547123", "hello"))
