@@ -1,6 +1,6 @@
 # Development & CI tooling (kept separate from runtime deps)
 ruff==0.14.4
 mypy==1.18.2
-pytest==8.4.2
+pytest==9.1.1
 pytest-asyncio==1.2.0
 # httpx is a runtime dep (see requirements.txt); also used by Starlette's TestClient
