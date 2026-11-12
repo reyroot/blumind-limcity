@@ -11,12 +11,15 @@ from typing import Protocol
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
-from app.models.report import ReportStatus, SourceChannel
+from app.models.report import SourceChannel
 from app.schemas.classification import ClassificationResult
 from app.schemas.inbound import InboundReportMessage
 from app.schemas.report import WasteReportCreate
 from app.services import conversation_service, report_service
 from app.services.classifier.base import WasteClassifier
+from app.services.image_store import store_report_image
+from app.services.reporter_notify import reply_classified, reply_queued
+from app.services.runtime_config import load_runtime_config
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +41,14 @@ REPLY_ERROR = (
     "\u26a0\ufe0f Recebemos seu registro, mas houve um erro ao classificar a imagem. "
     "Nossa equipe foi notificada."
 )
+REPLY_PROCESSING = (
+    "\u23f3 Recebemos sua foto e localização. Sua denúncia está sendo analisada; "
+    "enviaremos o resultado assim que terminar."
+)
+REPLY_INVALID_REPORT = (
+    "Não conseguimos identificar resíduos descartados em uma área aberta nessa foto. "
+    "Envie outra imagem mostrando claramente o descarte irregular."
+)
 
 
 class ReportChannel(Protocol):
@@ -50,12 +61,8 @@ class ReportChannel(Protocol):
     async def download_image(self, media_ref: str) -> bytes: ...
 
 
-def _reply_confirmed(result: ClassificationResult) -> str:
-    return (
-        f"\u2705 Denúncia registrada! Classificamos como *{result.category}* "
-        f"(confiança {result.confidence:.0%}). "
-        "Obrigado por ajudar a cuidar de Blumenau! \U0001f331"
-    )
+def _reply_confirmed(report_id: int, result: ClassificationResult) -> str:
+    return reply_classified(report_id, result.category, result.confidence)
 
 
 async def process_inbound_report(
@@ -155,6 +162,37 @@ async def _complete_report(
         logger.info("Duplicate message %s ignored", message_id)
         return
 
+    demo_mode = load_runtime_config().demo_mode
+    if demo_mode:
+        await _queue_demo_report(
+            session,
+            channel,
+            reporter_label=reporter_label,
+            session_key=session_key,
+            message_id=message_id,
+            media_ref=media_ref,
+            latitude=latitude,
+            longitude=longitude,
+        )
+        return
+
+    # Vision models can take some time, especially when hosted locally. Confirm receipt
+    # before downloading and classifying so the citizen does not mistake the delay for failure.
+    await channel.send_text(session_key, REPLY_PROCESSING)
+
+    try:
+        image_bytes = await channel.download_image(media_ref)
+        result = await classifier.classify(image_bytes)
+    except Exception:
+        logger.exception("Classification failed for %s", message_id)
+        await channel.send_text(session_key, REPLY_ERROR)
+        return
+
+    if not result.is_valid_report:
+        logger.info("Rejected non-waste report %s", message_id)
+        await channel.send_text(session_key, REPLY_INVALID_REPORT)
+        return
+
     report = await report_service.create_report(
         session,
         WasteReportCreate(
@@ -165,15 +203,40 @@ async def _complete_report(
             longitude=longitude,
         ),
     )
+    report.image_url = store_report_image(report.id, image_bytes)
+    await report_service.apply_classification(session, report, result)
+    await channel.send_text(session_key, _reply_confirmed(report.id, result))
 
+
+async def _queue_demo_report(
+    session: AsyncSession,
+    channel: ReportChannel,
+    *,
+    reporter_label: str,
+    session_key: str,
+    message_id: str,
+    media_ref: str,
+    latitude: float,
+    longitude: float,
+) -> None:
+    """Save the pin and the photo now. The classification worker finishes the report."""
     try:
         image_bytes = await channel.download_image(media_ref)
-        result = await classifier.classify(image_bytes)
-        await report_service.apply_classification(session, report, result)
     except Exception:
-        logger.exception("Classification failed for %s", message_id)
-        report.status = ReportStatus.FAILED
+        logger.exception("Media download failed for %s", message_id)
         await channel.send_text(session_key, REPLY_ERROR)
         return
 
-    await channel.send_text(session_key, _reply_confirmed(result))
+    report = await report_service.create_report(
+        session,
+        WasteReportCreate(
+            whatsapp_message_id=message_id,
+            reporter_phone=reporter_label,
+            source_channel=channel.source_channel,
+            latitude=latitude,
+            longitude=longitude,
+        ),
+    )
+    report.image_url = store_report_image(report.id, image_bytes)
+    logger.info("Demo report %s queued for classification", report.id)
+    await channel.send_text(session_key, reply_queued(report.id))

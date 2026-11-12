@@ -27,6 +27,7 @@ class WasteReportRead(BaseModel):
     status: ReportStatus
     waste_category: str | None
     confidence: float | None
+    image_url: str | None
     created_at: datetime
 
 

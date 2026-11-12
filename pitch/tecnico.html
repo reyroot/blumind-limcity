@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Limcity · Pitch técnico</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #132033;
+        --line: #24344a;
+        --text: #e8eef6;
+        --muted: #8fa3bb;
+        --accent: #22c55e;
+        --warn: #fbbf24;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .slide {
+        width: 100%;
+        height: 100%;
+        padding: 22px 24px 16px;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 14px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        min-width: 0;
+      }
+      .brand {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+      .brand span { color: var(--accent); }
+      .kicker {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin-bottom: 4px;
+      }
+      .thesis {
+        flex: 1;
+        text-align: right;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      .flow {
+        display: flex;
+        align-items: stretch;
+        gap: 6px;
+        min-width: 0;
+      }
+      .node {
+        flex: 1 1 0;
+        min-width: 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 10px;
+      }
+      .node h3 {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 3px;
+      }
+      .node p {
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.3;
+      }
+      .arrow {
+        flex: 0 0 14px;
+        color: var(--accent);
+        align-self: center;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr 1fr;
+        gap: 12px;
+        min-width: 0;
+        min-height: 0;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 14px 12px;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .card h2 {
+        font-size: 14px;
+        margin-bottom: 10px;
+        color: var(--accent);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      th {
+        text-align: left;
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding-bottom: 6px;
+      }
+      td {
+        padding: 7px 8px 7px 0;
+        border-top: 1px solid var(--line);
+        vertical-align: top;
+        line-height: 1.3;
+      }
+      td:first-child { font-weight: 700; width: 18%; }
+      .muted { color: var(--muted); }
+      ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      ul li strong { display: block; margin-bottom: 2px; }
+      .trade { color: var(--warn); }
+      .win { color: var(--accent); }
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        border-top: 1px solid var(--line);
+        padding-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        min-width: 0;
+      }
+      footer b { color: var(--text); font-weight: 650; }
+    </style>
+  </head>
+  <body>
+    <article class="slide">
+      <header>
+        <div>
+          <p class="kicker">Pitch · Arquitetura</p>
+          <p class="brand">LIM<span>CITY</span></p>
+        </div>
+        <p class="thesis">Cidadão já tem WhatsApp. A cidade precisa de mapa, não de app.</p>
+      </header>
+
+      <section class="flow" aria-label="Fluxo">
+        <div class="node">
+          <h3>Canal</h3>
+          <p>WhatsApp + Telegram. Foto e GPS. Sem app.</p>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="node">
+          <h3>API</h3>
+          <p>FastAPI async. Assina, deduplica, ack 200.</p>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="node">
+          <h3>IA</h3>
+          <p>Gemini, OpenAI ou Ollama. YOLO depois.</p>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="node">
+          <h3>Geo</h3>
+          <p>PostGIS. Ponto 4326 + índice GiST.</p>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="node">
+          <h3>Ops</h3>
+          <p>Heatmap, stats e GeoJSON.</p>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Stack — por que isso</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Camada</th>
+                <th>Escolha</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Canal</td>
+                <td>WhatsApp + Telegram</td>
+                <td class="muted">Onde o cidadão já está. Custo de aquisição ~0.</td>
+              </tr>
+              <tr>
+                <td>Backend</td>
+                <td>Python · FastAPI</td>
+                <td class="muted">Webhook async, OpenAPI, time-to-MVP curto.</td>
+              </tr>
+              <tr>
+                <td>Dados</td>
+                <td>Postgres + PostGIS</td>
+                <td class="muted">Heatmap e proximidade no banco, sem GIS extra.</td>
+              </tr>
+              <tr>
+                <td>IA</td>
+                <td>Vision plugável</td>
+                <td class="muted">Troca de provedor sem reescrever o pipeline.</td>
+              </tr>
+              <tr>
+                <td>UI</td>
+                <td>HTML + Leaflet</td>
+                <td class="muted">Dashboard operacional agora; SPA só se precisar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="card">
+          <h2>Trade-offs conscientes</h2>
+          <ul>
+            <li>
+              <strong>Canal vs. app nativo</strong>
+              <span class="trade">Dependência da Meta/Telegram.</span>
+              Vale adoção imediata, não meses de store.
+            </li>
+            <li>
+              <strong>Vision cloud vs. YOLO local</strong>
+              <span class="trade">Custo por imagem e latência.</span>
+              Vale acurácia e ship em semanas; modelo próprio vem depois.
+            </li>
+            <li>
+              <strong>Monólito FastAPI vs. microsserviços</strong>
+              <span class="trade">Escala isolada fica para depois.</span>
+              Vale um processo, um deploy, um time.
+            </li>
+            <li>
+              <strong>Não persistir foto (MVP)</strong>
+              <span class="trade">Sem auditoria da imagem.</span>
+              Vale menos superfície LGPD até haver retenção.
+            </li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>Vantagem técnica</h2>
+          <ul>
+            <li>
+              <strong>Desacoplamento real</strong>
+              <span class="win">Canal e classificador são interfaces.</span>
+              Novo canal ou modelo entra sem mexer no heatmap.
+            </li>
+            <li>
+              <strong>Geo nativo</strong>
+              <span class="win">Agregação ~110 m no PostGIS.</span>
+              Operação pergunta onde está quente, não lista 10 mil pins.
+            </li>
+            <li>
+              <strong>Intake confiável</strong>
+              <span class="win">HMAC, ack rápido, idempotência.</span>
+              Webhook de messenger não pode perder nem duplicar.
+            </li>
+            <li>
+              <strong>Caminho para on-prem</strong>
+              <span class="win">Ollama já no Strategy.</span>
+              O município classifica localmente quando privacidade mandar.
+            </li>
+          </ul>
+        </article>
+      </section>
+
+      <footer>
+        <span><b>Princípio:</b> o produto é o dado georreferenciado classificado — o resto é adaptador.</span>
+        <span>Entra21 · Blumenau</span>
+      </footer>
+    </article>
+  </body>
+</html>

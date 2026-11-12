@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Limcity · Administração</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --panel-2: #334155;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --accent: #22c55e;
+        --badge-text: #052e16;
+        --border: #334155;
+        --input-bg: #0f172a;
+        --danger: #f87171;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 8px;
+      }
+      h1 { font-size: 22px; margin: 0 0 4px; }
+      a { color: var(--accent); }
+      .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+      .badge {
+        display: inline-block;
+        background: var(--accent);
+        color: var(--badge-text);
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 6px;
+        vertical-align: middle;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 16px;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .stat {
+        background: var(--panel-2);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .stat b { display: block; font-size: 22px; }
+      .stat span { color: var(--muted); font-size: 12px; }
+      label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 6px; }
+      select, input[type="text"], input[type="number"], input[type="password"] {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--input-bg);
+        color: var(--text);
+        font-size: 14px;
+      }
+      .row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+      button {
+        background: var(--accent);
+        color: var(--badge-text);
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      button.danger {
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid var(--danger);
+      }
+      h2 { font-size: 16px; margin: 0 0 8px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+      .help { min-height: 2.6em; }
+      .message { margin-top: 12px; font-size: 14px; }
+      .message.error { color: var(--danger); }
+      code {
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+        background: var(--input-bg);
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      @media (max-width: 700px) {
+        .stats { grid-template-columns: 1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Limcity <span class="badge">ADMIN</span></h1>
+          <div class="muted">Configuração local da demonstração. Sem login.</div>
+        </div>
+        <a href="/dashboard/">Abrir mapa</a>
+      </header>
+
+      <section class="card">
+        <div class="stats" id="stats">
+          <div class="stat"><b id="n-pending">—</b><span>Na fila</span></div>
+          <div class="stat"><b id="n-processing">—</b><span>Classificando</span></div>
+          <div class="stat"><b id="n-classified">—</b><span>Classificadas</span></div>
+          <div class="stat"><b id="n-failed">—</b><span>Falhas</span></div>
+        </div>
+        <p class="muted" id="status-line">Carregando fila…</p>
+        <button class="secondary" id="requeue" type="button">Recolocar “classificando” na fila</button>
+      </section>
+
+      <section class="card">
+        <h2>Dados simulados</h2>
+        <p class="muted">
+          Preenche o mapa com denúncias classificadas em Blumenau, cada uma com uma foto.
+          Preencher de novo substitui o conjunto anterior. Limpar apaga só esses dados
+          simulados. Denúncias recebidas pelo Telegram ou WhatsApp permanecem.
+        </p>
+        <div class="actions">
+          <button type="button" id="fill-demo">Preencher demonstração</button>
+          <button type="button" class="danger" id="clear-demo">Limpar dados simulados</button>
+        </div>
+        <div class="message" id="demo-message"></div>
+      </section>
+
+      <form class="card" id="form">
+        <div class="row">
+          <input id="demo_mode" type="checkbox" />
+          <label for="demo_mode" style="margin:0;">Modo demonstração</label>
+        </div>
+        <p class="muted">
+          Com o modo demonstração ligado, a foto e a localização chegam pelo Telegram.
+          A foto é salva na hora, aparece no mapa, e o worker classifica depois.
+          O mapa mostra o ponto e a imagem enquanto a categoria chega.
+        </p>
+
+        <label for="ai_provider">Classificador</label>
+        <select id="ai_provider">
+          <option value="cursor">Cursor CLI</option>
+          <option value="ollama">Ollama (local)</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Gemini (placeholder aleatório)</option>
+        </select>
+        <p class="muted help" id="provider-help"></p>
+
+        <label for="cursor_cli_bin">Comando do Cursor CLI</label>
+        <input id="cursor_cli_bin" type="text" autocomplete="off" />
+        <label for="cursor_model">Modelo do Cursor (vazio usa o padrão da conta)</label>
+        <input id="cursor_model" type="text" autocomplete="off" />
+        <label for="cursor_timeout_seconds">Tempo limite do Cursor (segundos)</label>
+        <input id="cursor_timeout_seconds" type="number" min="1" max="600" step="1" />
+
+        <label for="ollama_base_url">URL do Ollama</label>
+        <input id="ollama_base_url" type="text" autocomplete="off" />
+        <label for="ollama_model">Modelo do Ollama</label>
+        <input id="ollama_model" type="text" autocomplete="off" />
+        <label for="ollama_timeout_seconds">Tempo limite do Ollama (segundos)</label>
+        <input id="ollama_timeout_seconds" type="number" min="1" max="600" step="1" />
+
+        <label for="openai_model">Modelo da OpenAI</label>
+        <input id="openai_model" type="text" autocomplete="off" />
+        <label for="ai_api_key">Chave de API (deixe em branco para manter a atual)</label>
+        <input id="ai_api_key" type="password" autocomplete="new-password" />
+        <p class="muted" id="key-state"></p>
+
+        <button type="submit">Salvar configuração</button>
+        <div class="message" id="message"></div>
+      </form>
+
+      <section class="card">
+        <p class="muted">
+          <code>run.py</code> já inicia o worker de classificação. Para vê-lo num terminal separado,
+          suba a API com <code>LIMCITY_EMBED_WORKER=0</code> e rode
+          <code>python -m app.workers.classify_worker</code>.
+          As fotos ficam em <code id="storage-dir">data/report-images</code>.
+        </p>
+      </section>
+    </main>
+    <script>
+      const HELP = {
+        cursor: "O worker executa o Cursor CLI (agent) em modo somente leitura, numa pasta temporária que contém só a foto.",
+        ollama: "O worker envia a foto para um modelo de visão no Ollama desta máquina.",
+        openai: "O worker chama a API da OpenAI com a chave e o modelo abaixo.",
+        gemini: "Placeholder: devolve uma categoria aleatória. Serve para ensaiar o mapa sem um modelo real.",
+      };
+      const FIELDS = [
+        "demo_mode",
+        "ai_provider",
+        "openai_model",
+        "ollama_base_url",
+        "ollama_model",
+        "ollama_timeout_seconds",
+        "cursor_cli_bin",
+        "cursor_model",
+        "cursor_timeout_seconds",
+      ];
+
+      function setMessage(text, isError) {
+        const el = document.getElementById("message");
+        el.textContent = text;
+        el.classList.toggle("error", Boolean(isError));
+      }
+
+      function showHelp() {
+        const provider = document.getElementById("ai_provider").value;
+        document.getElementById("provider-help").textContent = HELP[provider] || "";
+      }
+
+      function fillForm(cfg) {
+        document.getElementById("demo_mode").checked = Boolean(cfg.demo_mode);
+        for (const name of FIELDS) {
+          if (name === "demo_mode") continue;
+          const el = document.getElementById(name);
+          if (el) el.value = cfg[name] ?? "";
+        }
+        document.getElementById("ai_api_key").value = "";
+        document.getElementById("key-state").textContent = cfg.ai_api_key_set
+          ? "Uma chave já está salva."
+          : "Nenhuma chave real configurada.";
+        document.getElementById("storage-dir").textContent = cfg.image_storage_dir || "data/report-images";
+        showHelp();
+      }
+
+      function payload() {
+        const body = {
+          demo_mode: document.getElementById("demo_mode").checked,
+          ai_provider: document.getElementById("ai_provider").value,
+          openai_model: document.getElementById("openai_model").value.trim(),
+          ollama_base_url: document.getElementById("ollama_base_url").value.trim(),
+          ollama_model: document.getElementById("ollama_model").value.trim(),
+          ollama_timeout_seconds: Number(document.getElementById("ollama_timeout_seconds").value),
+          cursor_cli_bin: document.getElementById("cursor_cli_bin").value.trim(),
+          cursor_model: document.getElementById("cursor_model").value.trim(),
+          cursor_timeout_seconds: Number(document.getElementById("cursor_timeout_seconds").value),
+        };
+        const key = document.getElementById("ai_api_key").value;
+        if (key) body.ai_api_key = key;
+        return body;
+      }
+
+      async function loadConfig() {
+        const res = await fetch("/api/admin/config");
+        if (!res.ok) throw new Error("Não foi possível ler a configuração");
+        fillForm(await res.json());
+      }
+
+      async function loadStatus() {
+        const res = await fetch("/api/admin/status");
+        if (!res.ok) {
+          document.getElementById("status-line").textContent = "Banco indisponível. A configuração ainda pode ser salva.";
+          return;
+        }
+        const data = await res.json();
+        const counts = data.by_status || {};
+        document.getElementById("n-pending").textContent = counts.pending ?? 0;
+        document.getElementById("n-processing").textContent = counts.processing ?? 0;
+        document.getElementById("n-classified").textContent = counts.classified ?? 0;
+        document.getElementById("n-failed").textContent = counts.failed ?? 0;
+        const mode = data.demo_mode ? "demonstração" : "classificação imediata";
+        document.getElementById("status-line").textContent =
+          `Modo ${mode} · classificador ${data.ai_provider}.`;
+      }
+
+      document.getElementById("ai_provider").addEventListener("change", showHelp);
+      document.getElementById("form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setMessage("Salvando…", false);
+        const res = await fetch("/api/admin/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload()),
+        });
+        if (!res.ok) {
+          setMessage("Não foi possível salvar. Confira os campos.", true);
+          return;
+        }
+        fillForm(await res.json());
+        setMessage("Configuração salva. A próxima denúncia usa este classificador.", false);
+        loadStatus();
+      });
+      document.getElementById("requeue").addEventListener("click", async () => {
+        const res = await fetch("/api/admin/requeue", { method: "POST" });
+        if (!res.ok) {
+          setMessage("Não foi possível recolocar a fila.", true);
+          return;
+        }
+        const data = await res.json();
+        setMessage(`${data.requeued} denúncia(s) voltaram para a fila.`, false);
+        loadStatus();
+      });
+
+      function setDemoMessage(text, isError) {
+        const el = document.getElementById("demo-message");
+        el.textContent = text;
+        el.classList.toggle("error", Boolean(isError));
+      }
+
+      async function runDemoAction(url, pendingText, button) {
+        button.disabled = true;
+        setDemoMessage(pendingText, false);
+        try {
+          const res = await fetch(url, { method: "POST" });
+          if (!res.ok) {
+            setDemoMessage("Não foi possível atualizar os dados simulados.", true);
+            return;
+          }
+          const data = await res.json();
+          if (url.endsWith("/clear")) {
+            setDemoMessage(`${data.removed} denúncia(s) simulada(s) apagada(s).`, false);
+          } else if (data.removed) {
+            setDemoMessage(
+              `${data.inserted} denúncias simuladas no mapa. O conjunto anterior foi substituído.`,
+              false,
+            );
+          } else {
+            setDemoMessage(`${data.inserted} denúncias simuladas no mapa.`, false);
+          }
+          loadStatus();
+        } catch (err) {
+          setDemoMessage("Não foi possível atualizar os dados simulados.", true);
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      document.getElementById("fill-demo").addEventListener("click", (event) => {
+        runDemoAction("/api/admin/demo-data", "Preenchendo o mapa…", event.currentTarget);
+      });
+      document.getElementById("clear-demo").addEventListener("click", (event) => {
+        if (!window.confirm("Apagar as denúncias simuladas? As denúncias reais permanecem.")) return;
+        runDemoAction("/api/admin/demo-data/clear", "Apagando dados simulados…", event.currentTarget);
+      });
+
+      loadConfig().catch((err) => setMessage(err.message, true));
+      loadStatus();
+      setInterval(loadStatus, 4000);
+    </script>
+  </body>
+</html>

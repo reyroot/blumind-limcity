@@ -1,6 +1,7 @@
 """Telegram Bot API helpers: webhook parsing, file download, outbound replies."""
 
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -102,6 +103,19 @@ async def download_file(file_id: str) -> bytes:
         return asset.content
 
 
+def _stars_to_html(body: str) -> str:
+    """Convert shared ``*bold*`` markers to Telegram HTML (legacy Markdown is fragile)."""
+    escaped = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return re.sub(r"\*(.+?)\*", r"<b>\1</b>", escaped)
+
+
+def _telegram_chat_id(chat_key: str) -> int | str:
+    raw = chat_key.removeprefix("tg:")
+    if raw.lstrip("-").isdigit():
+        return int(raw)
+    return raw
+
+
 async def send_text_message(chat_key: str, body: str) -> None:
     """Send a plain-text reply to a citizen (``chat_key`` is ``tg:<chat_id>``).
 
@@ -111,19 +125,23 @@ async def send_text_message(chat_key: str, body: str) -> None:
         logger.info("Telegram not configured; would reply to %s: %s", chat_key, body)
         return
 
-    chat_id = chat_key.removeprefix("tg:")
     url = f"{_api_base()}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": body,
-        "parse_mode": "Markdown",
+    payload: dict[str, object] = {
+        "chat_id": _telegram_chat_id(chat_key),
+        "text": _stars_to_html(body),
+        "parse_mode": "HTML",
     }
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(url, json=payload)
+            if response.status_code >= 400:
+                payload.pop("parse_mode", None)
+                payload["text"] = body
+                response = await client.post(url, json=payload)
         if response.status_code >= 400:
             logger.error(
-                "Failed to send Telegram reply to %s: %s %s",
+                "Failed to send Telegram reply to %s: %s %s "
+                "(open the bot chat and tap Start)",
                 chat_key,
                 response.status_code,
                 response.text,

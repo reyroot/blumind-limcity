@@ -15,6 +15,7 @@ app.include_router(api_router)
 
 _STATIC_DIR = Path(__file__).parent / "app" / "static"
 app.mount("/dashboard", StaticFiles(directory=_STATIC_DIR, html=True), name="dashboard")
+app.mount("/admin", StaticFiles(directory=_STATIC_DIR / "admin", html=True), name="admin")
 
 
 @app.get("/")

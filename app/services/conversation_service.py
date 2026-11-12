@@ -4,10 +4,14 @@ Buffers a citizen's pending photo and/or location (keyed by phone) until both pa
 a report are present, then the pipeline promotes them into a persisted ``WasteReport``.
 """
 
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import ConversationSession
+
+_SESSION_TTL = timedelta(hours=1)
 
 
 async def get_session(session: AsyncSession, phone: str) -> ConversationSession | None:
@@ -20,11 +24,23 @@ async def get_session(session: AsyncSession, phone: str) -> ConversationSession 
 
 async def _get_or_create(session: AsyncSession, phone: str) -> ConversationSession:
     convo = await get_session(session, phone)
+    if convo is not None and _is_expired(convo):
+        await session.delete(convo)
+        await session.flush()
+        convo = None
     if convo is None:
         convo = ConversationSession(phone=phone)
         session.add(convo)
         await session.flush()
     return convo
+
+
+def _is_expired(convo: ConversationSession) -> bool:
+    """Treat photo/location pairs older than one hour as separate reports."""
+    updated_at = convo.updated_at
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - updated_at >= _SESSION_TTL
 
 
 async def set_image(

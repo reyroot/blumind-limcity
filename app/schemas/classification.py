@@ -20,6 +20,9 @@ WASTE_CATEGORIES: tuple[str, ...] = (
 
 
 class ClassificationResult(BaseModel):
+    is_valid_report: bool = Field(
+        description="Whether the image visibly shows discarded waste in an outdoor/public area."
+    )
     category: str = Field(description="Predicted waste category, e.g. 'organic'.")
     confidence: float = Field(ge=0.0, le=1.0, description="Model confidence [0, 1].")
     raw: dict[str, object] = Field(

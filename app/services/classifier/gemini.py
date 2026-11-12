@@ -20,6 +20,7 @@ class GeminiWasteClassifier(WasteClassifier):
         # TODO: call the real vision API here (async httpx call, timeout + retries).
         category = random.choice(WASTE_CATEGORIES)
         return ClassificationResult(
+            is_valid_report=True,
             category=category,
             confidence=round(random.uniform(0.6, 0.99), 2),
             raw={"provider": "gemini", "note": "placeholder implementation"},

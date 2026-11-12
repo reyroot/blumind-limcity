@@ -97,3 +97,11 @@ def test_verify_webhook_secret_enforced(monkeypatch: pytest.MonkeyPatch) -> None
 def test_send_text_message_dev_bypass_is_noop(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "telegram_bot_token", "change-me")
     asyncio.run(send_text_message("tg:42", "hello"))
+
+
+def test_telegram_chat_id_parses_numeric_keys() -> None:
+    from app.services.telegram import _telegram_chat_id
+
+    assert _telegram_chat_id("tg:42") == 42
+    assert _telegram_chat_id("tg:-100123") == -100123
+    assert _telegram_chat_id("tg:@somebot") == "@somebot"

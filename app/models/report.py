@@ -18,8 +18,10 @@ from app.db.base import Base
 
 class ReportStatus(str, Enum):
     PENDING = "pending"
+    PROCESSING = "processing"
     CLASSIFIED = "classified"
     FAILED = "failed"
+    COLLECTED = "collected"
 
 
 class SourceChannel(str, Enum):

@@ -36,9 +36,21 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id: str = "change-me"
     whatsapp_graph_version: str = "v25.0"
 
-    # AI / Vision classifier
-    ai_provider: Literal["gemini", "openai", "yolo"] = "gemini"
+    # AI / Vision classifier. Admin panel can override these at runtime.
+    ai_provider: Literal["gemini", "openai", "ollama", "cursor", "yolo"] = "gemini"
     ai_api_key: str = "change-me"
+    openai_model: str = "gpt-5"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "gemma3"
+    ollama_timeout_seconds: float = 180.0
+
+    # Presentation mode: save the photo immediately and let the worker classify it.
+    demo_mode: bool = True
+    cursor_cli_bin: str = "agent"
+    cursor_model: str = ""
+    cursor_timeout_seconds: float = 180.0
+    image_storage_dir: str = "data/report-images"
+    runtime_config_path: str = "data/runtime_config.json"
 
     # Telegram Bot API
     telegram_bot_token: str = "change-me"

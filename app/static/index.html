@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Limcity · Waste Heatmap</title>
+    <title>Limcity · Mapa de resíduos</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -40,7 +40,7 @@
       }
       #app { display: flex; height: 100vh; }
       #sidebar {
-        width: 320px;
+        width: 340px;
         background: var(--panel);
         padding: 20px;
         overflow-y: auto;
@@ -68,7 +68,6 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: background 0.15s, border-color 0.15s;
       }
       #theme-toggle:hover { background: var(--panel-2); }
       #theme-toggle:focus-visible {
@@ -77,7 +76,8 @@
       }
       #map { flex: 1; }
       h1 { font-size: 20px; margin: 0 0 4px; }
-      .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+      .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+      .nav-link { color: var(--accent); font-size: 13px; }
       .card {
         background: var(--panel-2);
         border-radius: 10px;
@@ -93,10 +93,7 @@
         color: var(--text); font-size: 14px;
       }
       .field { margin-bottom: 14px; }
-      .view-toggle {
-        display: flex;
-        gap: 6px;
-      }
+      .view-toggle { display: flex; gap: 6px; }
       .view-toggle button {
         flex: 1;
         padding: 8px 6px;
@@ -120,6 +117,84 @@
       .count { color: var(--muted); font-variant-numeric: tabular-nums; }
       .footer { color: var(--muted); font-size: 11px; margin-top: 20px; line-height: 1.5; }
       .badge { display:inline-block; background: var(--accent); color:var(--badge-text); font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; vertical-align:middle; }
+      .thumb {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        width: 100%;
+        padding: 8px 0;
+        border: 0;
+        border-top: 1px solid var(--border);
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .thumb img {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 8px;
+        background: var(--input-bg);
+      }
+      .thumb small { display: block; color: var(--muted); }
+      .collect-btn {
+        margin-top: 8px;
+        background: var(--accent);
+        color: var(--badge-text);
+        border: 0;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .popup-photo {
+        width: 220px;
+        max-height: 160px;
+        object-fit: cover;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        display: block;
+      }
+      .classifying-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        border-top: 1px solid var(--border);
+      }
+      .photo-wrap {
+        position: relative;
+        width: 56px;
+        height: 56px;
+        flex-shrink: 0;
+      }
+      .photo-wrap img {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 8px;
+        opacity: 0.55;
+      }
+      .spinner {
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      .photo-wrap .spinner {
+        position: absolute;
+        top: 17px;
+        left: 17px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @media (max-width: 800px) {
+        #app { flex-direction: column; }
+        #sidebar { width: 100%; max-height: 42vh; }
+        #map { min-height: 58vh; }
+      }
     </style>
   </head>
   <body>
@@ -127,46 +202,63 @@
       <aside id="sidebar">
         <div class="sidebar-header">
           <div class="sidebar-title">
-            <h1>Limcity <span class="badge">DEV</span></h1>
+            <h1>Limcity <span class="badge" id="mode-badge">DEMO</span></h1>
           </div>
           <button
             id="theme-toggle"
             type="button"
-            aria-label="Switch to light mode"
-            title="Switch to light mode"
+            aria-label="Usar tema claro"
+            title="Usar tema claro"
           >☀️</button>
         </div>
-        <div class="subtitle">Smart waste heatmap · Blumenau, SC</div>
+        <div class="subtitle">Mapa de resíduos · Blumenau, SC</div>
+        <div class="subtitle"><a class="nav-link" href="/admin/">Configuração</a></div>
 
         <div class="card">
-          <div class="total-label">Total reports</div>
+          <div class="total-label">Total de denúncias</div>
           <div class="total" id="total">—</div>
         </div>
 
         <div class="field">
-          <label>Map view</label>
+          <label>Visualização</label>
           <div class="view-toggle" id="view-mode">
-            <button type="button" data-mode="heatmap" class="active">Heatmap</button>
-            <button type="button" data-mode="markers">Reports</button>
-            <button type="button" data-mode="both">Both</button>
+            <button type="button" data-mode="heatmap" class="active">Mapa de calor</button>
+            <button type="button" data-mode="markers">Pontos</button>
+            <button type="button" data-mode="both">Ambos</button>
           </div>
         </div>
 
         <div class="field">
-          <label for="category">Waste category</label>
+          <label for="category">Categoria do resíduo</label>
           <select id="category">
-            <option value="">All categories</option>
+            <option value="">Todas as categorias</option>
+            <option value="organic">Orgânico</option>
+            <option value="recyclable">Reciclável</option>
+            <option value="construction_debris">Entulho</option>
+            <option value="electronic">Eletrônico</option>
+            <option value="bulky">Volumoso</option>
+            <option value="hazardous">Perigoso</option>
+            <option value="general">Geral</option>
           </select>
         </div>
 
         <div class="card">
-          <div class="total-label" style="margin-bottom:8px;">By category</div>
+          <div class="total-label" style="margin-bottom:8px;">Por categoria</div>
           <div id="legend"></div>
         </div>
 
-        <div class="footer">
-          Placeholder classifier — categories are randomized for demo.<br />
-          Heatmap = density zones · Reports = each pin.
+        <div class="card" id="classifying-card" hidden>
+          <div class="total-label" style="margin-bottom:8px;">Classificando</div>
+          <div id="classifying"></div>
+        </div>
+
+        <div class="card">
+          <div class="total-label" style="margin-bottom:8px;">Últimas fotos</div>
+          <div id="recent"></div>
+        </div>
+
+        <div class="footer" id="footer">
+          Mapa de calor = densidade. Pontos = cada denúncia. Clique num ponto para ver a foto.
         </div>
       </aside>
       <div id="map"></div>
@@ -179,13 +271,15 @@
       const THEME_KEY = "limcity-dashboard-theme";
       const TILE_LAYERS = {
         dark: {
-          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-          label: "Switch to light mode",
+          url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+          attribution: "&copy; Esri",
+          label: "Usar tema claro",
           icon: "☀️",
         },
         light: {
-          url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-          label: "Switch to dark mode",
+          url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+          attribution: "&copy; OpenStreetMap",
+          label: "Usar tema escuro",
           icon: "🌙",
         },
       };
@@ -198,12 +292,52 @@
         hazardous: "#ef4444",
         general: "#94a3b8",
       };
+      const CATEGORY_LABELS = {
+        organic: "Orgânico",
+        recyclable: "Reciclável",
+        construction_debris: "Entulho",
+        electronic: "Eletrônico",
+        bulky: "Volumoso",
+        hazardous: "Perigoso",
+        general: "Geral",
+      };
+      const STATUS_LABELS = {
+        pending: "Na fila",
+        processing: "Classificando",
+        classified: "Classificada",
+        failed: "Não classificada",
+      };
+      const PROVIDER_LABELS = {
+        gemini: "Gemini",
+        openai: "OpenAI",
+        ollama: "Ollama",
+        cursor: "Cursor CLI",
+      };
 
       const map = L.map("map").setView(BLUMENAU, 13);
       let tileLayer = null;
       let heatLayer = null;
       let markerLayer = null;
-      let viewMode = localStorage.getItem("limcity-view-mode") || "heatmap";
+      let viewMode = localStorage.getItem("limcity-view-mode") || "both";
+
+      function esc(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        }[ch]));
+      }
+
+      function categoryLabel(category) {
+        if (!category) return "Não classificado";
+        return CATEGORY_LABELS[category] || category;
+      }
+
+      function safeImageUrl(url) {
+        return typeof url === "string" && /^\/api\/reports\/\d+\/image$/.test(url) ? url : "";
+      }
 
       function setViewMode(mode) {
         viewMode = mode;
@@ -214,7 +348,6 @@
       }
 
       function heatIntensity(weight, maxWeight) {
-        // Square-root scaling keeps dense demo data from becoming one solid red blob.
         return Math.sqrt(weight) / Math.sqrt(maxWeight);
       }
 
@@ -230,16 +363,31 @@
         };
       }
 
+      function statusText(props) {
+        if (props.status === "failed" && props.confidence == null) return "Falha na classificação";
+        if (props.status === "failed") return "Foto sem descarte irregular";
+        return STATUS_LABELS[props.status] || props.status || "—";
+      }
+
       function popupHtml(props) {
-        const cat = props.category || "unclassified";
+        const image = safeImageUrl(props.image_url);
+        const photo = image
+          ? `<img class="popup-photo" src="${image}" alt="Foto do resíduo">`
+          : "";
         const conf = props.confidence != null ? `${Math.round(props.confidence * 100)}%` : "—";
-        const channel = props.source_channel || "—";
-        const when = props.created_at ? new Date(props.created_at).toLocaleString() : "—";
+        const when = props.created_at
+          ? new Date(props.created_at).toLocaleString("pt-BR")
+          : "—";
+        const channels = { telegram: "Telegram", whatsapp: "WhatsApp" };
+        const channel = channels[props.source_channel] || props.source_channel || "—";
         return `
-          <strong>#${props.id}</strong> · ${cat}<br>
-          Confidence: ${conf}<br>
-          Channel: ${channel}<br>
-          <span style="color:#64748b;font-size:12px">${when}</span>
+          ${photo}
+          <strong>Denúncia nº ${esc(props.id)}</strong> · ${esc(categoryLabel(props.category))}<br>
+          Situação: ${esc(statusText(props))}<br>
+          Confiança: ${esc(conf)}<br>
+          Canal: ${esc(channel)}<br>
+          <span style="color:#64748b;font-size:12px">${esc(when)}</span><br>
+          <button type="button" class="collect-btn" data-report-id="${esc(props.id)}">Marcar como coletado</button>
         `;
       }
 
@@ -284,9 +432,69 @@
             return L.circleMarker(latlng, markerStyle(feature.properties.category));
           },
           onEachFeature(feature, layer) {
-            layer.bindPopup(popupHtml(feature.properties));
+            layer.bindPopup(popupHtml(feature.properties), { maxWidth: 260 });
           },
         }).addTo(map);
+      }
+
+      function renderClassifying(items) {
+        const card = document.getElementById("classifying-card");
+        const root = document.getElementById("classifying");
+        root.innerHTML = "";
+        if (!items.length) {
+          card.hidden = true;
+          return;
+        }
+        card.hidden = false;
+        for (const item of items) {
+          const row = document.createElement("div");
+          row.className = "classifying-row";
+          const image = safeImageUrl(item.image_url);
+          const photo = image
+            ? `<span class="photo-wrap"><img src="${image}" alt="Foto em classificação"><span class="spinner"></span></span>`
+            : `<span class="spinner"></span>`;
+          row.innerHTML = `
+            ${photo}
+            <span>
+              <strong>Classificando a foto</strong>
+              <small style="display:block;color:var(--muted)">Aguardando o resultado</small>
+            </span>`;
+          root.appendChild(row);
+        }
+      }
+
+      function renderRecent(items) {
+        const root = document.getElementById("recent");
+        root.innerHTML = "";
+        const photos = (items || []).filter((item) => safeImageUrl(item.image_url));
+        if (photos.length === 0) {
+          root.innerHTML = '<div class="count">Nenhuma denúncia válida ainda.</div>';
+          return;
+        }
+        for (const item of photos) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "thumb";
+          button.innerHTML = `
+            <img src="${safeImageUrl(item.image_url)}" alt="Foto da denúncia ${esc(item.id)}">
+            <span>
+              <strong>nº ${esc(item.id)} · ${esc(categoryLabel(item.waste_category))}</strong>
+              <small>${esc(STATUS_LABELS[item.status] || item.status)}</small>
+            </span>`;
+          button.addEventListener("click", () => {
+            map.setView([item.latitude, item.longitude], 17);
+          });
+          const collect = document.createElement("button");
+          collect.type = "button";
+          collect.className = "collect-btn";
+          collect.textContent = "Marcar como coletado";
+          collect.addEventListener("click", (event) => {
+            event.stopPropagation();
+            collectReport(item.id);
+          });
+          button.appendChild(collect);
+          root.appendChild(button);
+        }
       }
 
       function applyTheme(theme) {
@@ -302,7 +510,7 @@
 
         if (tileLayer) map.removeLayer(tileLayer);
         tileLayer = L.tileLayer(cfg.url, {
-          attribution: "&copy; OpenStreetMap &copy; CARTO",
+          attribution: cfg.attribution,
           maxZoom: 19,
         }).addTo(map);
       }
@@ -327,8 +535,11 @@
       }
 
       function currentQuery() {
+        const params = new URLSearchParams();
+        params.set("status", "classified");
         const cat = document.getElementById("category").value;
-        return cat ? `?category=${encodeURIComponent(cat)}` : "";
+        if (cat) params.set("category", cat);
+        return `?${params.toString()}`;
       }
 
       async function refresh() {
@@ -342,15 +553,20 @@
           const geojson = showMarkers
             ? await fetchJSON(`/api/reports/geojson${q}${q ? "&" : "?"}limit=5000`)
             : null;
+          const recent = await fetchJSON("/api/reports?status=classified&limit=8");
+          const pending = await fetchJSON("/api/reports?status=pending&limit=8");
+          const processing = await fetchJSON("/api/reports?status=processing&limit=8");
 
           renderHeatmap(points);
           renderMarkers(geojson);
+          renderRecent(recent.items);
+          renderClassifying([...(processing.items || []), ...(pending.items || [])]);
 
-          document.getElementById("total").textContent = stats.total.toLocaleString();
+          document.getElementById("total").textContent = stats.total.toLocaleString("pt-BR");
           const legend = document.getElementById("legend");
           legend.innerHTML = "";
           if (stats.by_category.length === 0) {
-            legend.innerHTML = '<div class="count">No data yet.</div>';
+            legend.innerHTML = '<div class="count">Nenhuma denúncia ainda.</div>';
           }
           for (const row of stats.by_category) {
             const key = row.category || "general";
@@ -359,30 +575,47 @@
             div.innerHTML = `
               <div class="legend-left">
                 <span class="swatch" style="background:${COLORS[key] || "#94a3b8"}"></span>
-                <span>${row.category || "unclassified"}</span>
+                <span>${esc(categoryLabel(row.category))}</span>
               </div>
-              <span class="count">${row.count.toLocaleString()}</span>`;
+              <span class="count">${row.count.toLocaleString("pt-BR")}</span>`;
             legend.appendChild(div);
           }
         } catch (e) {
           console.error(e);
           document.getElementById("legend").innerHTML =
-            `<div class="count">Error loading map data: ${e.message}</div>`;
+            `<div class="count">Erro ao carregar o mapa: ${esc(e.message)}</div>`;
         }
       }
 
-      async function initCategories() {
-        // Populate the filter from whatever categories exist in the data.
-        const stats = await fetchJSON("/api/reports/stats");
-        const sel = document.getElementById("category");
-        for (const row of stats.by_category) {
-          if (!row.category) continue;
-          const opt = document.createElement("option");
-          opt.value = row.category;
-          opt.textContent = row.category;
-          sel.appendChild(opt);
+      async function loadSetup() {
+        try {
+          const cfg = await fetchJSON("/api/admin/config");
+          document.getElementById("mode-badge").textContent = cfg.demo_mode ? "DEMO" : "AO VIVO";
+          const provider = PROVIDER_LABELS[cfg.ai_provider] || cfg.ai_provider;
+          const mode = cfg.demo_mode
+            ? "Modo demonstração: a foto e a localização chegam pelo Telegram. Só denúncias válidas entram no mapa."
+            : "Classificação imediata no recebimento da denúncia. Só denúncias válidas entram no mapa.";
+          document.getElementById("footer").textContent =
+            `${mode} Classificador: ${provider}.`;
+        } catch (e) {
+          console.error(e);
         }
       }
+
+      async function collectReport(id) {
+        const res = await fetch(`/api/reports/${id}/collect`, { method: "POST" });
+        if (!res.ok) {
+          window.alert("Não foi possível marcar a denúncia como coletada.");
+          return;
+        }
+        await refresh();
+      }
+
+      map.on("popupopen", (event) => {
+        const button = event.popup.getElement()?.querySelector(".collect-btn");
+        if (!button) return;
+        button.addEventListener("click", () => collectReport(button.dataset.reportId));
+      });
 
       document.getElementById("category").addEventListener("change", refresh);
 
@@ -394,17 +627,12 @@
       });
 
       setViewMode(viewMode);
-
-      (async () => {
-        try {
-          await initCategories();
-          await refresh();
-        } catch (e) {
-          console.error(e);
-          document.getElementById("legend").innerHTML =
-            `<div class="count">Error loading data: ${e.message}</div>`;
-        }
-      })();
+      loadSetup();
+      refresh();
+      setInterval(() => {
+        loadSetup();
+        refresh();
+      }, 8000);
     </script>
   </body>
 </html>

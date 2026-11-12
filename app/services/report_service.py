@@ -20,12 +20,15 @@ def _filters(
     source_channel: SourceChannel | None,
     start: datetime | None,
     end: datetime | None,
+    status: ReportStatus | None = None,
 ) -> list[ColumnElement[bool]]:
     conditions: list[ColumnElement[bool]] = []
     if category is not None:
         conditions.append(WasteReport.waste_category == category)
     if source_channel is not None:
         conditions.append(WasteReport.source_channel == source_channel)
+    if status is not None:
+        conditions.append(WasteReport.status == status)
     if start is not None:
         conditions.append(WasteReport.created_at >= start)
     if end is not None:
@@ -39,6 +42,50 @@ async def get_by_message_id(session: AsyncSession, message_id: str) -> WasteRepo
         select(WasteReport).where(WasteReport.whatsapp_message_id == message_id)
     )
     return result.scalar_one_or_none()
+
+
+async def get_by_id(session: AsyncSession, report_id: int) -> WasteReport | None:
+    return await session.get(WasteReport, report_id)
+
+
+async def claim_next_pending(session: AsyncSession) -> WasteReport | None:
+    """Lock the oldest pending report and mark it processing. None when the queue is empty."""
+    stmt = (
+        select(WasteReport)
+        .where(WasteReport.status == ReportStatus.PENDING)
+        .order_by(WasteReport.created_at.asc(), WasteReport.id.asc())
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
+    report = (await session.execute(stmt)).scalar_one_or_none()
+    if report is None:
+        return None
+    report.status = ReportStatus.PROCESSING
+    await session.flush()
+    return report
+
+
+async def requeue_processing(session: AsyncSession) -> int:
+    """Put reports stuck in ``processing`` back on the queue (worker crash recovery)."""
+    result = await session.execute(
+        select(WasteReport).where(WasteReport.status == ReportStatus.PROCESSING)
+    )
+    rows = result.scalars().all()
+    for report in rows:
+        report.status = ReportStatus.PENDING
+    await session.flush()
+    return len(rows)
+
+
+async def status_counts(session: AsyncSession) -> dict[str, int]:
+    counts = {status.value: 0 for status in ReportStatus}
+    rows = await session.execute(
+        select(WasteReport.status, func.count()).group_by(WasteReport.status)
+    )
+    for status, count in rows.all():
+        key = status.value if isinstance(status, ReportStatus) else str(status)
+        counts[key] = int(count)
+    return counts
 
 
 async def create_report(session: AsyncSession, payload: WasteReportCreate) -> WasteReport:
@@ -59,13 +106,23 @@ async def create_report(session: AsyncSession, payload: WasteReportCreate) -> Wa
     return report
 
 
-async def apply_classification(
-    session: AsyncSession, report: WasteReport, result: ClassificationResult
-) -> WasteReport:
-    """Attach an AI classification result to an existing report."""
+def record_result(report: WasteReport, result: ClassificationResult) -> None:
+    """Apply a classifier result. Invalid photos stay on the map as failed."""
+    if not result.is_valid_report:
+        report.status = ReportStatus.FAILED
+        report.waste_category = None
+        report.confidence = result.confidence
+        return
     report.waste_category = result.category
     report.confidence = result.confidence
     report.status = ReportStatus.CLASSIFIED
+
+
+async def apply_classification(
+    session: AsyncSession, report: WasteReport, result: ClassificationResult
+) -> WasteReport:
+    """Attach a valid AI classification result to an existing report."""
+    record_result(report, result)
     await session.flush()
     return report
 
@@ -75,6 +132,7 @@ async def list_reports(
     *,
     category: str | None = None,
     source_channel: SourceChannel | None = None,
+    status: ReportStatus | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
     limit: int = 100,
@@ -83,7 +141,7 @@ async def list_reports(
     """Return a filtered, paginated page of reports (newest first)."""
     stmt = (
         select(WasteReport)
-        .where(*_filters(category, source_channel, start, end))
+        .where(*_filters(category, source_channel, start, end, status))
         .order_by(WasteReport.created_at.desc())
         .limit(limit)
         .offset(offset)
@@ -97,6 +155,7 @@ async def count_reports(
     *,
     category: str | None = None,
     source_channel: SourceChannel | None = None,
+    status: ReportStatus | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> int:
@@ -104,7 +163,7 @@ async def count_reports(
     stmt = (
         select(func.count())
         .select_from(WasteReport)
-        .where(*_filters(category, source_channel, start, end))
+        .where(*_filters(category, source_channel, start, end, status))
     )
     total = (await session.execute(stmt)).scalar_one()
     return int(total)
@@ -115,6 +174,7 @@ async def heatmap_points(
     *,
     category: str | None = None,
     source_channel: SourceChannel | None = None,
+    status: ReportStatus | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> list[HeatmapPoint]:
@@ -123,7 +183,7 @@ async def heatmap_points(
     lng_cell = func.round(cast(WasteReport.longitude, Numeric), _HEATMAP_PRECISION)
     stmt = (
         select(lat_cell, lng_cell, func.count())
-        .where(*_filters(category, source_channel, start, end))
+        .where(*_filters(category, source_channel, start, end, status))
         .group_by(lat_cell, lng_cell)
     )
     rows = await session.execute(stmt)
@@ -138,11 +198,12 @@ async def stats(
     *,
     category: str | None = None,
     source_channel: SourceChannel | None = None,
+    status: ReportStatus | None = None,
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> ReportStats:
     """Return total count and a per-category breakdown for the given filters."""
-    conditions = _filters(category, source_channel, start, end)
+    conditions = _filters(category, source_channel, start, end, status)
     total_raw = (
         await session.execute(select(func.count()).select_from(WasteReport).where(*conditions))
     ).scalar_one()
